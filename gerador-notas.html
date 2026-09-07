@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Notas — Registro de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFF1F3;
+    --paper-doc:#FCFCFB;
+    --ink:#1B2333;
+    --ink-soft:#3A4354;
+    --steel:#2E4A6B;
+    --steel-dark:#20344C;
+    --copper:#A8551F;
+    --copper-dark:#8A4419;
+    --line:#D6DAE0;
+    --line-soft:#E4E7EB;
+    --muted:#5B6472;
+    --danger:#9B3B3B;
+    --ok:#2F6B4F;
+    --radius:3px;
+    --serif:'Source Serif 4', Georgia, serif;
+    --sans:'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
+    --mono:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-attachment: fixed;
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:var(--steel); }
+
+  ::selection{ background:var(--steel); color:#fff; }
+
+  /* ---------- Shell ---------- */
+  .shell{ max-width:1280px; margin:0 auto; padding:0 24px 64px; }
+
+  .topbar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    padding:32px 0 20px;
+    border-bottom:2px solid var(--ink);
+    margin-bottom:0;
+    gap:24px; flex-wrap:wrap;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand-mark{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+    color:var(--copper); font-weight:600;
+  }
+  .brand-title{
+    font-family:var(--serif); font-weight:600; font-size:26px; color:var(--ink);
+  }
+
+  .tabs{ display:flex; gap:2px; }
+  .tab-btn{
+    font-family:var(--sans); font-size:13px; font-weight:600; color:var(--muted);
+    background:transparent; border:none; border-bottom:3px solid transparent;
+    padding:10px 4px; margin:0 16px 0 0; cursor:pointer;
+  }
+  .tab-btn:last-child{ margin-right:0; }
+  .tab-btn.active{ color:var(--ink); border-bottom-color:var(--copper); }
+  .tab-btn:hover{ color:var(--ink); }
+
+  .view{ display:none; padding-top:28px; }
+  .view.active{ display:block; }
+
+  /* ---------- Workspace (Nova Nota) ---------- */
+  .workspace{
+    display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap:32px; align-items:start;
+  }
+  @media (max-width: 980px){
+    .workspace{ grid-template-columns: 1fr; }
+  }
+
+  .form-mobile-tabs{ display:none; gap:8px; margin-bottom:16px; }
+  @media (max-width: 980px){
+    .form-mobile-tabs{ display:flex; }
+  }
+  .mtab{
+    flex:1; text-align:center; padding:9px 0; font-size:12px; font-weight:600;
+    border:1px solid var(--ink); background:var(--paper-doc); color:var(--ink); cursor:pointer;
+  }
+  .mtab.on{ background:var(--ink); color:#fff; }
+
+  fieldset{ border:none; margin:0 0 26px; padding:0; }
+  legend{
+    font-family:var(--serif); font-size:15px; font-weight:600; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px; width:100%;
+    padding-bottom:6px; margin-bottom:14px; border-bottom:1px solid var(--line);
+  }
+  legend .num{
+    font-family:var(--mono); color:var(--copper); font-size:12px; font-weight:600;
+  }
+
+  .field-row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px; }
+  .field-row.single{ grid-template-columns: 1fr; }
+  .field-row.thirds{ grid-template-columns: 1.4fr .8fr .8fr; }
+  @media (max-width:560px){
+    .field-row, .field-row.thirds{ grid-template-columns:1fr; }
+  }
+
+  label{
+    display:block; font-size:11px; font-weight:600; color:var(--muted);
+    letter-spacing:.02em; margin-bottom:5px;
+  }
+
+  input[type=text], input[type=date], textarea, select{
+    width:100%; font-family:var(--sans); font-size:13.5px; color:var(--ink);
+    background:var(--paper-doc); border:1px solid var(--line); border-radius:var(--radius);
+    padding:9px 10px; outline:none;
+  }
+  input:focus, textarea:focus, select:focus{
+    border-color:var(--steel); box-shadow:0 0 0 3px rgba(46,74,107,0.12);
+  }
+  textarea{ resize:vertical; min-height:64px; font-size:13.5px; }
+
+  select{ appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235B6472'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; padding-right:28px;
+  }
+
+  /* items table */
+  .items-table{ width:100%; border-collapse:collapse; margin-bottom:10px; }
+  .items-table th{
+    text-align:left; font-size:10.5px; font-weight:600; color:var(--muted);
+    letter-spacing:.03em; padding:0 8px 8px 0; border-bottom:1px solid var(--line);
+  }
+  .items-table th.num, .items-table td.num{ text-align:right; }
+  .items-table td{ padding:6px 8px 6px 0; vertical-align:top; }
+  .items-table td.desc input{ width:100%; }
+  .items-table td.val input{ width:100%; text-align:right; font-family:var(--mono); }
+  .items-table td.rm{ width:28px; text-align:center; padding-top:9px; }
+
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--muted);
+    width:26px; height:26px; border-radius:var(--radius); cursor:pointer;
+    font-size:14px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{ border-color:var(--danger); color:var(--danger); }
+
+  .add-item-btn{
+    font-family:var(--sans); font-size:12px; font-weight:600; color:var(--steel);
+    background:none; border:1px dashed var(--line); border-radius:var(--radius);
+    padding:8px 12px; cursor:pointer; width:100%; text-align:left;
+  }
+  .add-item-btn:hover{ border-color:var(--steel); background:rgba(46,74,107,0.05); }
+
+  .actions-row{ display:flex; gap:10px; margin-top:28px; flex-wrap:wrap; }
+  .btn{
+    font-family:var(--sans); font-size:13px; font-weight:600; border-radius:var(--radius);
+    padding:11px 20px; cursor:pointer; border:1px solid transparent;
+  }
+  .btn-primary{ background:var(--ink); color:#fff; }
+  .btn-primary:hover{ background:var(--steel-dark); }
+  .btn-secondary{ background:var(--paper-doc); color:var(--ink); border-color:var(--ink); }
+  .btn-secondary:hover{ background:var(--paper); }
+  .btn-ghost{ background:none; color:var(--muted); border:1px solid var(--line); }
+  .btn-ghost:hover{ color:var(--ink); border-color:var(--ink); }
+
+  .hint{ font-size:11.5px; color:var(--muted); margin-top:4px; }
+
+  /* ---------- Document preview ---------- */
+  .doc-wrap{ position:sticky; top:24px; }
+  .doc{
+    background:var(--paper-doc); border:1px solid var(--line);
+    box-shadow:0 1px 2px rgba(27,35,51,.04), 0 8px 24px rgba(27,35,51,.06);
+    padding:44px 40px; min-height:400px;
+  }
+  .doc-kicker{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    border-bottom:2px solid var(--ink); padding-bottom:16px; margin-bottom:22px;
+  }
+  .doc-title{ font-family:var(--serif); font-size:22px; font-weight:600; }
+  .doc-num{ font-family:var(--mono); font-size:11.5px; color:var(--muted); text-align:right; }
+  .doc-num strong{ color:var(--ink); display:block; font-size:13px; }
+
+  .doc-section{ margin-bottom:20px; }
+  .doc-section-title{
+    font-size:11px; font-weight:600; letter-spacing:.03em; color:var(--copper);
+    margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--line-soft);
+  }
+  .doc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:2px 18px; font-size:13px; }
+  .doc-grid .k{ color:var(--muted); }
+  .doc-grid .v{ color:var(--ink); font-weight:500; }
+  .doc-para{ font-size:13px; color:var(--ink-soft); line-height:1.6; }
+
+  table.doc-items{ width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  table.doc-items th{
+    text-align:left; font-size:10.5px; letter-spacing:.03em; color:var(--muted);
+    padding:0 0 6px; border-bottom:1px solid var(--ink);
+  }
+  table.doc-items th.num, table.doc-items td.num{ text-align:right; font-family:var(--mono); }
+  table.doc-items td{ padding:7px 0; border-bottom:1px solid var(--line-soft); }
+  table.doc-items tfoot td{ border-bottom:none; border-top:1px solid var(--ink); font-weight:600; padding-top:9px; }
+  .doc-total-value{ font-family:var(--mono); color:var(--copper-dark); font-size:15px; }
+
+  .doc-sign{ margin-top:44px; text-align:center; }
+  .doc-sign .line{ border-top:1px solid var(--ink); width:260px; margin:0 auto 6px; }
+  .doc-sign .name{ font-weight:600; font-size:13px; }
+  .doc-sign .doc-id{ font-size:11.5px; color:var(--muted); }
+
+  .doc-empty{ color:var(--muted); font-size:13px; padding:60px 0; text-align:center; }
+
+  .doc-toolbar{ display:flex; gap:10px; margin-top:14px; }
+
+  /* ---------- History ---------- */
+  .hist-summary{ display:flex; gap:36px; margin-bottom:26px; flex-wrap:wrap; }
+  .hist-stat .num{ font-family:var(--serif); font-size:26px; font-weight:600; }
+  .hist-stat .label{ font-size:11px; color:var(--muted); letter-spacing:.02em; }
+
+  .hist-toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .hist-toolbar input, .hist-toolbar select{ max-width:240px; }
+
+  table.hist-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.hist-table thead th{
+    text-align:left; font-size:10.5px; letter-spacing:.03em; color:var(--muted);
+    border-bottom:2px solid var(--ink); padding:0 10px 8px 0;
+  }
+  table.hist-table td{ padding:11px 10px 11px 0; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+  table.hist-table td.num{ font-family:var(--mono); text-align:right; }
+  table.hist-table tbody tr:hover{ background:rgba(46,74,107,0.04); }
+
+  .badge{
+    display:inline-block; font-size:10.5px; font-weight:600; letter-spacing:.02em;
+    padding:3px 8px; border-radius:2px; border:1px solid var(--line); color:var(--ink-soft);
+  }
+
+  .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
+  .link-btn{
+    background:none; border:none; font-family:var(--sans); font-size:12px; font-weight:600;
+    color:var(--steel); cursor:pointer; padding:2px 4px;
+  }
+  .link-btn.danger{ color:var(--danger); }
+  .link-btn:hover{ text-decoration:underline; }
+
+  .empty-state{
+    border:1px dashed var(--line); padding:48px 20px; text-align:center; color:var(--muted); font-size:13px;
+  }
+
+  footer.note{ margin-top:56px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--muted); }
+
+  @media print{
+    body{ background:#fff; }
+    .topbar, .tabs, .form-mobile-tabs, form, .doc-toolbar, .hist-summary, .hist-toolbar, footer.note{ display:none !important; }
+    .workspace{ display:block; }
+    .doc-wrap{ position:static; }
+    .doc{ box-shadow:none; border:none; padding:0; }
+    .shell{ max-width:none; padding:0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">REGISTRO DE DOCUMENTOS</span>
+      <span class="brand-title">Gerador de Notas</span>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-view="nova">Nova Nota</button>
+      <button class="tab-btn" data-view="historico">Histórico</button>
+    </div>
+  </div>
+
+  <!-- ===================== NOVA NOTA ===================== -->
+  <div class="view active" id="view-nova">
+
+    <div class="form-mobile-tabs">
+      <div class="mtab on" data-pane="editor">Editar</div>
+      <div class="mtab" data-pane="preview">Pré-visualizar</div>
+    </div>
+
+    <div class="workspace">
+
+      <!-- Editor -->
+      <div class="pane" id="pane-editor">
+        <form id="note-form" autocomplete="off">
+
+          <fieldset>
+            <legend><span class="num">00</span> Tipo de documento</legend>
+            <div class="field-row single">
+              <div>
+                <label for="tipoDoc">Documento a emitir</label>
+                <select id="tipoDoc">
+                  <option value="Nota de Serviço">Nota de Serviço</option>
+                  <option value="Recibo de Pagamento">Recibo de Pagamento</option>
+                  <option value="Nota de Débito">Nota de Débito</option>
+                  <option value="Orçamento">Orçamento / Proposta</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">01</span> Prestador / Emissor</legend>
+            <div class="field-row">
+              <div><label for="pNome">Nome / Razão social</label><input type="text" id="pNome" placeholder="Ex.: Anderson Motta Menezes"></div>
+              <div><label for="pDoc">CPF / CNPJ</label><input type="text" id="pDoc" placeholder="000.000.000-00"></div>
+            </div>
+            <div class="field-row">
+              <div><label for="pEndereco">Endereço</label><input type="text" id="pEndereco" placeholder="Rua, número, bairro, cidade"></div>
+              <div><label for="pContato">Contato</label><input type="text" id="pContato" placeholder="E-mail ou telefone"></div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">02</span> Tomador / Cliente</legend>
+            <div class="field-row">
+              <div><label for="cNome">Nome / Razão social</label><input type="text" id="cNome" placeholder="Nome do cliente"></div>
+              <div><label for="cDoc">CPF / CNPJ</label><input type="text" id="cDoc" placeholder="000.000.000-00"></div>
+            </div>
+            <div class="field-row single">
+              <div><label for="cEndereco">Endereço (opcional)</label><input type="text" id="cEndereco" placeholder="Endereço do cliente"></div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">03</span> Discriminação dos serviços</legend>
+            <div class="field-row single">
+              <div><label for="descGeral">Descrição geral (opcional)</label><textarea id="descGeral" placeholder="Resumo dos serviços prestados"></textarea></div>
+            </div>
+
+            <table class="items-table">
+              <thead>
+                <tr><th>Item / serviço</th><th class="num" style="width:120px">Valor (R$)</th><th></th></tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+            <button type="button" class="add-item-btn" id="addItemBtn">+ Adicionar item</button>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">04</span> Condições de pagamento</legend>
+            <div class="field-row thirds">
+              <div>
+                <label for="formaPagamento">Forma de pagamento</label>
+                <select id="formaPagamento">
+                  <option value="">Selecionar</option>
+                  <option>Pix</option>
+                  <option>Boleto</option>
+                  <option>Transferência</option>
+                  <option>Cartão</option>
+                  <option>Dinheiro</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+              <div><label for="dataEmissao">Emissão</label><input type="date" id="dataEmissao"></div>
+              <div><label for="dataVencimento">Vencimento</label><input type="date" id="dataVencimento"></div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">05</span> Observações e dados bancários</legend>
+            <div class="field-row single">
+              <div><textarea id="observacoes" placeholder="Banco, agência, conta, chave Pix, garantias, condições contratuais..."></textarea></div>
+            </div>
+          </fieldset>
+
+          <div class="actions-row">
+            <button type="submit" class="btn btn-primary">Salvar no histórico</button>
+            <button type="button" class="btn btn-secondary" id="printBtn">Imprimir / Exportar PDF</button>
+            <button type="button" class="btn btn-ghost" id="clearBtn">Limpar formulário</button>
+          </div>
+          <p class="hint">A pré-visualização à direita é atualizada conforme você digita. "Salvar no histórico" registra a nota na aba Histórico.</p>
+        </form>
+      </div>
+
+      <!-- Preview -->
+      <div class="pane doc-wrap" id="pane-preview">
+        <div class="doc" id="docPreview"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== HISTÓRICO ===================== -->
+  <div class="view" id="view-historico">
+
+    <div class="hist-summary">
+      <div class="hist-stat"><div class="num" id="statCount">0</div><div class="label">DOCUMENTOS EMITIDOS</div></div>
+      <div class="hist-stat"><div class="num" id="statTotal">R$ 0,00</div><div class="label">VALOR TOTAL REGISTRADO</div></div>
+      <div class="hist-stat"><div class="num" id="statLast">—</div><div class="label">ÚLTIMO REGISTRO</div></div>
+    </div>
+
+    <div class="hist-toolbar">
+      <input type="text" id="histSearch" placeholder="Buscar por cliente ou nº do documento">
+      <select id="histFilterTipo">
+        <option value="">Todos os tipos</option>
+        <option value="Nota de Serviço">Nota de Serviço</option>
+        <option value="Recibo de Pagamento">Recibo de Pagamento</option>
+        <option value="Nota de Débito">Nota de Débito</option>
+        <option value="Orçamento">Orçamento / Proposta</option>
+      </select>
+      <button type="button" class="btn btn-ghost" id="exportJsonBtn">Exportar histórico (.json)</button>
+    </div>
+
+    <div id="histTableWrap"></div>
+
+  </div>
+
+  <footer class="note">
+    Os dados desta ferramenta são armazenados apenas no navegador local (localStorage), sem envio a servidores. Ao publicar no GitHub Pages, o histórico permanece por dispositivo/navegador — utilize "Exportar histórico" para manter uma cópia externa.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "notas_historico_v1";
+  var itemSeq = 0;
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function currency(n){
+    n = isFinite(n) ? n : 0;
+    return "R$ " + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function parseNum(v){
+    if (typeof v !== "string") return 0;
+    var cleaned = v.replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3},)/g,'').replace(',', '.');
+    var n = parseFloat(cleaned);
+    return isFinite(n) ? n : 0;
+  }
+
+  function fmtDate(iso){
+    if (!iso) return "[não informado]";
+    var p = iso.split("-");
+    if (p.length !== 3) return iso;
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  function esc(s){
+    return (s || "").replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+    });
+  }
+
+  /* ---------------- Tabs ---------------- */
+  document.querySelectorAll(".tab-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      var target = btn.getAttribute("data-view");
+      document.getElementById("view-nova").classList.toggle("active", target === "nova");
+      document.getElementById("view-historico").classList.toggle("active", target === "historico");
+      if (target === "historico") renderHistory();
+    });
+  });
+
+  document.querySelectorAll(".mtab").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".mtab").forEach(function(b){ b.classList.remove("on"); });
+      btn.classList.add("on");
+      var pane = btn.getAttribute("data-pane");
+      document.getElementById("pane-editor").style.display = (pane === "editor") ? "block" : "none";
+      document.getElementById("pane-preview").style.display = (pane === "preview") ? "block" : "none";
+    });
+  });
+  function resetMobilePanes(){
+    if (window.innerWidth > 980) {
+      document.getElementById("pane-editor").style.display = "";
+      document.getElementById("pane-preview").style.display = "";
+    } else if (!document.querySelector(".mtab.on")) {
+      document.getElementById("pane-preview").style.display = "none";
+    }
+  }
+  window.addEventListener("resize", resetMobilePanes);
+
+  /* ---------------- Items table ---------------- */
+  var itemsBody = document.getElementById("itemsBody");
+
+  function addItemRow(desc, val){
+    itemSeq++;
+    var tr = document.createElement("tr");
+    tr.dataset.id = itemSeq;
+    tr.innerHTML =
+      '<td class="desc"><input type="text" placeholder="Descrição do item ou serviço" value="' + esc(desc||"") + '"></td>' +
+      '<td class="val"><input type="text" inputmode="decimal" placeholder="0,00" value="' + esc(val||"") + '"></td>' +
+      '<td class="rm"><button type="button" class="icon-btn" title="Remover item">×</button></td>';
+    itemsBody.appendChild(tr);
+    tr.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("input", updatePreview); });
+    tr.querySelector(".icon-btn").addEventListener("click", function(){
+      tr.remove();
+      updatePreview();
+    });
+  }
+
+  document.getElementById("addItemBtn").addEventListener("click", function(){
+    addItemRow("", "");
+    updatePreview();
+  });
+
+  function getItems(){
+    var rows = itemsBody.querySelectorAll("tr");
+    var items = [];
+    rows.forEach(function(tr){
+      var desc = tr.querySelector(".desc input").value.trim();
+      var val = parseNum(tr.querySelector(".val input").value);
+      if (desc || val) items.push({ desc: desc, val: val });
+    });
+    return items;
+  }
+
+  /* ---------------- Form -> data ---------------- */
+  var form = document.getElementById("note-form");
+
+  function getFormData(){
+    return {
+      tipo: document.getElementById("tipoDoc").value,
+      prestador: {
+        nome: document.getElementById("pNome").value.trim(),
+        doc: document.getElementById("pDoc").value.trim(),
+        endereco: document.getElementById("pEndereco").value.trim(),
+        contato: document.getElementById("pContato").value.trim()
+      },
+      cliente: {
+        nome: document.getElementById("cNome").value.trim(),
+        doc: document.getElementById("cDoc").value.trim(),
+        endereco: document.getElementById("cEndereco").value.trim()
+      },
+      descGeral: document.getElementById("descGeral").value.trim(),
+      itens: getItems(),
+      formaPagamento: document.getElementById("formaPagamento").value,
+      dataEmissao: document.getElementById("dataEmissao").value,
+      dataVencimento: document.getElementById("dataVencimento").value,
+      observacoes: document.getElementById("observacoes").value.trim()
+    };
+  }
+
+  var docTitles = {
+    "Nota de Serviço": "NOTA DE SERVIÇO",
+    "Recibo de Pagamento": "RECIBO DE PAGAMENTO",
+    "Nota de Débito": "NOTA DE DÉBITO",
+    "Orçamento": "ORÇAMENTO / PROPOSTA"
+  };
+
+  function buildDocNumber(date){
+    var d = date ? new Date(date + "T00:00:00") : new Date();
+    var y = d.getFullYear();
+    var seqKey = "notas_seq_" + y;
+    var seq = parseInt(localStorage.getItem(seqKey) || "0", 10);
+    return { display: y + "-" + String(seq + 1).padStart(3, "0"), seqKey: seqKey, seq: seq };
+  }
+
+  function renderDoc(data, opts){
+    opts = opts || {};
+    var total = data.itens.reduce(function(s,i){ return s + i.val; }, 0);
+    var title = docTitles[data.tipo] || "NOTA DE SERVIÇO";
+    var numDisplay = opts.numero || "[a definir ao salvar]";
+
+    var itemsRows = data.itens.map(function(i){
+      return '<tr><td>' + esc(i.desc || "[item sem descrição]") + '</td><td class="num">' + currency(i.val) + '</td></tr>';
+    }).join("");
+
+    if (!itemsRows) {
+      itemsRows = '<tr><td colspan="2" style="color:var(--muted); font-style:italic;">Nenhum item adicionado</td></tr>';
+    }
+
+    var html = '';
+    html += '<div class="doc-kicker">';
+    html += '  <div class="doc-title">' + title + '</div>';
+    html += '  <div class="doc-num">Nº do documento<strong>' + esc(numDisplay) + '</strong></div>';
+    html += '</div>';
+
+    html += '<div class="doc-section"><div class="doc-section-title">PRESTADOR / EMISSOR</div><div class="doc-grid">';
+    html += '  <div class="k">Nome</div><div class="v">' + esc(data.prestador.nome || "[não informado]") + '</div>';
+    html += '  <div class="k">CPF/CNPJ</div><div class="v">' + esc(data.prestador.doc || "[não informado]") + '</div>';
+    html += '  <div class="k">Endereço</div><div class="v">' + esc(data.prestador.endereco || "[não informado]") + '</div>';
+    html += '  <div class="k">Contato</div><div class="v">' + esc(data.prestador.contato || "[não informado]") + '</div>';
+    html += '</div></div>';
+
+    html += '<div class="doc-section"><div class="doc-section-title">TOMADOR / CLIENTE</div><div class="doc-grid">';
+    html += '  <div class="k">Nome</div><div class="v">' + esc(data.cliente.nome || "[não informado]") + '</div>';
+    html += '  <div class="k">CPF/CNPJ</div><div class="v">' + esc(data.cliente.doc || "[não informado]") + '</div>';
+    if (data.cliente.endereco) {
+      html += '  <div class="k">Endereço</div><div class="v">' + esc(data.cliente.endereco) + '</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="doc-section"><div class="doc-section-title">DISCRIMINAÇÃO</div>';
+    if (data.descGeral) html += '<p class="doc-para" style="margin-top:0">' + esc(data.descGeral) + '</p>';
+    html += '  <table class="doc-items"><thead><tr><th>Descrição</th><th class="num">Valor</th></tr></thead>';
+    html += '  <tbody>' + itemsRows + '</tbody>';
+    html += '  <tfoot><tr><td>VALOR TOTAL</td><td class="num doc-total-value">' + currency(total) + '</td></tr></tfoot>';
+    html += '  </table></div>';
+
+    html += '<div class="doc-section"><div class="doc-section-title">CONDIÇÕES DE PAGAMENTO</div><div class="doc-grid">';
+    html += '  <div class="k">Forma de pagamento</div><div class="v">' + esc(data.formaPagamento || "[não informado]") + '</div>';
+    html += '  <div class="k">Emissão</div><div class="v">' + fmtDate(data.dataEmissao) + '</div>';
+    html += '  <div class="k">Vencimento</div><div class="v">' + (data.dataVencimento ? fmtDate(data.dataVencimento) : "[não aplicável]") + '</div>';
+    html += '</div></div>';
+
+    if (data.observacoes) {
+      html += '<div class="doc-section"><div class="doc-section-title">OBSERVAÇÕES</div><p class="doc-para">' + esc(data.observacoes).replace(/\n/g,'<br>') + '</p></div>';
+    }
+
+    html += '<div class="doc-sign"><div class="line"></div><div class="name">' + esc(data.prestador.nome || "[Nome do prestador]") + '</div>';
+    html += '<div class="doc-id">' + esc(data.prestador.doc || "[CPF/CNPJ do prestador]") + '</div></div>';
+
+    return { html: html, total: total };
+  }
+
+  function updatePreview(){
+    var data = getFormData();
+    var result = renderDoc(data, {});
+    document.getElementById("docPreview").innerHTML = result.html;
+  }
+
+  form.addEventListener("input", updatePreview);
+  document.getElementById("tipoDoc").addEventListener("change", updatePreview);
+
+  /* ---------------- Storage ---------------- */
+  function loadHistory(){
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch(e){ return []; }
+  }
+  function saveHistory(list){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+    catch(e){ /* localStorage indisponível neste contexto */ }
+  }
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    var data = getFormData();
+
+    if (!data.cliente.nome || data.itens.length === 0) {
+      alert("Informe ao menos o nome do cliente e um item para salvar no histórico.");
+      return;
+    }
+
+    var seqInfo = buildDocNumber(data.dataEmissao);
+    localStorage.setItem(seqInfo.seqKey, String(seqInfo.seq + 1));
+
+    var result = renderDoc(data, { numero: seqInfo.display });
+
+    var record = {
+      id: uid(),
+      numero: seqInfo.display,
+      tipo: data.tipo,
+      cliente: data.cliente.nome,
+      valorTotal: result.total,
+      dataEmissao: data.dataEmissao,
+      criadoEm: new Date().toISOString(),
+      dados: data
+    };
+
+    var list = loadHistory();
+    list.unshift(record);
+    saveHistory(list);
+
+    document.getElementById("docPreview").innerHTML = result.html;
+    alert("Nota " + seqInfo.display + " salva no histórico.");
+  });
+
+  document.getElementById("clearBtn").addEventListener("click", function(){
+    if (!confirm("Limpar todos os campos do formulário atual?")) return;
+    form.reset();
+    itemsBody.innerHTML = "";
+    addItemRow("", "");
+    document.getElementById("dataEmissao").value = todayISO();
+    updatePreview();
+  });
+
+  document.getElementById("printBtn").addEventListener("click", function(){
+    window.print();
+  });
+
+  document.getElementById("exportJsonBtn").addEventListener("click", function(){
+    var list = loadHistory();
+    var blob = new Blob([JSON.stringify(list, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "historico_notas.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  /* ---------------- History view ---------------- */
+  function renderHistory(){
+    var list = loadHistory();
+    var search = document.getElementById("histSearch").value.trim().toLowerCase();
+    var filterTipo = document.getElementById("histFilterTipo").value;
+
+    var filtered = list.filter(function(r){
+      var matchesSearch = !search ||
+        (r.cliente || "").toLowerCase().indexOf(search) !== -1 ||
+        (r.numero || "").toLowerCase().indexOf(search) !== -1;
+      var matchesTipo = !filterTipo || r.tipo === filterTipo;
+      return matchesSearch && matchesTipo;
+    });
+
+    var count = list.length;
+    var totalVal = list.reduce(function(s,r){ return s + (r.valorTotal||0); }, 0);
+    document.getElementById("statCount").textContent = count;
+    document.getElementById("statTotal").textContent = currency(totalVal);
+    document.getElementById("statLast").textContent = count ? fmtDate(list[0].dataEmissao) : "—";
+
+    var wrap = document.getElementById("histTableWrap");
+
+    if (!filtered.length) {
+      wrap.innerHTML = '<div class="empty-state">' +
+        (count ? "Nenhum documento encontrado para os filtros aplicados." : "Nenhum documento emitido ainda. Preencha e salve uma nota na aba \"Nova Nota\" para começar o registro.") +
+        '</div>';
+      return;
+    }
+
+    var rows = filtered.map(function(r){
+      return '<tr data-id="' + r.id + '">' +
+        '<td><span class="badge">' + esc(r.numero) + '</span></td>' +
+        '<td>' + esc(r.tipo) + '</td>' +
+        '<td>' + fmtDate(r.dataEmissao) + '</td>' +
+        '<td>' + esc(r.cliente) + '</td>' +
+        '<td class="num">' + currency(r.valorTotal) + '</td>' +
+        '<td><div class="row-actions">' +
+          '<button type="button" class="link-btn" data-action="view">Ver</button>' +
+          '<button type="button" class="link-btn" data-action="reuse">Reabrir</button>' +
+          '<button type="button" class="link-btn danger" data-action="del">Excluir</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join("");
+
+    wrap.innerHTML =
+      '<table class="hist-table"><thead><tr>' +
+      '<th>Nº</th><th>Tipo</th><th>Emissão</th><th>Cliente</th><th style="text-align:right">Valor</th><th></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+    wrap.querySelectorAll("button[data-action]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var tr = btn.closest("tr");
+        var id = tr.dataset.id;
+        var record = loadHistory().find(function(r){ return r.id === id; });
+        if (!record) return;
+        var action = btn.getAttribute("data-action");
+
+        if (action === "del") {
+          if (!confirm("Excluir a nota " + record.numero + " do histórico? Esta ação não pode ser desfeita.")) return;
+          var updated = loadHistory().filter(function(r){ return r.id !== id; });
+          saveHistory(updated);
+          renderHistory();
+          return;
+        }
+
+        if (action === "view") {
+          var result = renderDoc(record.dados, { numero: record.numero });
+          openViewModal(result.html);
+          return;
+        }
+
+        if (action === "reuse") {
+          fillFormFromRecord(record);
+          document.querySelector('.tab-btn[data-view="nova"]').click();
+        }
+      });
+    });
+  }
+
+  document.getElementById("histSearch").addEventListener("input", renderHistory);
+  document.getElementById("histFilterTipo").addEventListener("change", renderHistory);
+
+  function fillFormFromRecord(record){
+    var d = record.dados;
+    document.getElementById("tipoDoc").value = d.tipo;
+    document.getElementById("pNome").value = d.prestador.nome;
+    document.getElementById("pDoc").value = d.prestador.doc;
+    document.getElementById("pEndereco").value = d.prestador.endereco;
+    document.getElementById("pContato").value = d.prestador.contato;
+    document.getElementById("cNome").value = d.cliente.nome;
+    document.getElementById("cDoc").value = d.cliente.doc;
+    document.getElementById("cEndereco").value = d.cliente.endereco;
+    document.getElementById("descGeral").value = d.descGeral;
+    document.getElementById("formaPagamento").value = d.formaPagamento;
+    document.getElementById("dataEmissao").value = d.dataEmissao;
+    document.getElementById("dataVencimento").value = d.dataVencimento;
+    document.getElementById("observacoes").value = d.observacoes;
+
+    itemsBody.innerHTML = "";
+    (d.itens.length ? d.itens : [{desc:"",val:""}]).forEach(function(i){
+      addItemRow(i.desc, i.val ? String(i.val).replace('.',',') : "");
+    });
+    updatePreview();
+  }
+
+  /* simple modal for "Ver" */
+  var modalOverlay, modalBox;
+  function openViewModal(html){
+    if (!modalOverlay) {
+      modalOverlay = document.createElement("div");
+      modalOverlay.style.cssText = "position:fixed;inset:0;background:rgba(27,35,51,.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;z-index:50;";
+      modalBox = document.createElement("div");
+      modalBox.className = "doc";
+      modalBox.style.cssText = "max-width:640px;width:100%;position:relative;";
+      var closeBtn = document.createElement("button");
+      closeBtn.textContent = "Fechar";
+      closeBtn.className = "btn btn-ghost";
+      closeBtn.style.cssText = "position:absolute; top:-46px; right:0;";
+      closeBtn.addEventListener("click", function(){ modalOverlay.remove(); modalOverlay = null; });
+      modalOverlay.addEventListener("click", function(e){ if (e.target === modalOverlay){ modalOverlay.remove(); modalOverlay = null; } });
+      modalOverlay.appendChild(closeBtn);
+      modalOverlay.appendChild(modalBox);
+    }
+    modalBox.innerHTML = html;
+    document.body.appendChild(modalOverlay);
+  }
+
+  /* ---------------- Init ---------------- */
+  function todayISO(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  addItemRow("", "");
+  document.getElementById("dataEmissao").value = todayISO();
+  updatePreview();
+  resetMobilePanes();
+
+})();
+</script>
+</body>
+</html>
